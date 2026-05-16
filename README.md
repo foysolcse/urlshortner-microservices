@@ -287,7 +287,6 @@ push to main
 | `DOCKER_USERNAME` | Docker Hub username |
 | `DOCKER_PASSWORD` | Docker Hub password or access token |
 | `SONAR_TOKEN` | SonarCloud / SonarQube authentication token |
-| `SONAR_HOST_URL` | Full SonarCloud / SonarQube server URL, such as `https://sonarcloud.io` or `https://sonarqube.example.com` |
 | `KUBE_CONFIG` | Base64-encoded kubeconfig (`base64 ~/.kube/config`) |
 
 ### Image tags pushed on each run

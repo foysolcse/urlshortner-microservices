@@ -12,7 +12,6 @@ env:
   REGISTRY_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
   IMAGE_TAG: ${{ github.sha }}
   HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
-  HAS_SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL != '' }}
 
 jobs:
   test-scan-build:
@@ -60,25 +59,23 @@ jobs:
           npm test
 
       - name: Validate SonarQube secrets
-        if: github.event_name != 'pull_request' && (env.HAS_SONAR_TOKEN != 'true' || env.HAS_SONAR_HOST_URL != 'true')
+        if: github.event_name != 'pull_request' && env.HAS_SONAR_TOKEN != 'true'
         run: |
-          echo "::error::Missing SONAR_TOKEN or SONAR_HOST_URL repository secret. SONAR_HOST_URL must be the full SonarQube/SonarCloud URL, for example https://sonarcloud.io."
+          echo "::error::Missing SONAR_TOKEN repository secret. The SonarCloud URL is configured in sonar-project.properties."
           exit 1
 
       - name: SonarQube scan
-        if: env.HAS_SONAR_TOKEN == 'true' && env.HAS_SONAR_HOST_URL == 'true'
+        if: env.HAS_SONAR_TOKEN == 'true'
         uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: SonarQube quality gate
-        if: env.HAS_SONAR_TOKEN == 'true' && env.HAS_SONAR_HOST_URL == 'true'
+        if: env.HAS_SONAR_TOKEN == 'true'
         uses: sonarsource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Login to Docker Hub
         if: github.event_name != 'pull_request'
