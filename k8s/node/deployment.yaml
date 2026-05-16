@@ -18,7 +18,7 @@ spec:
       containers:
         - name: node-service
           image: foysolcse/node-service:v1
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           resources:

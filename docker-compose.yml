@@ -3,7 +3,6 @@ name: urlshortner-microservices
 services:
   redis:
     image: redis:8-alpine
-    container_name: redis
     ports:
       - "6379:6379"
     volumes:
@@ -12,11 +11,10 @@ services:
 
   go-service:
     build: ./go-service
-    container_name: go-service
     ports:
       - "8000:8000"
     volumes:
-      - go-data:/app
+      - go-data:/data
     environment:
       - PYTHON_SERVICE_URL=http://python-service:5000
       - PUBLIC_BASE_URL=http://localhost:8000
@@ -26,7 +24,6 @@ services:
 
   node-service:
     build: ./node-service
-    container_name: node-service
     ports:
       - "3000:3000"
     volumes:
@@ -34,7 +31,6 @@ services:
 
   python-service:
     build: ./python-service
-    container_name: python-service
     ports:
       - "5000:5000"
     volumes:

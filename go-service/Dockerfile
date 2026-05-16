@@ -1,25 +1,31 @@
-FROM golang:1.24-alpine
+FROM golang:1.24-alpine AS builder
 
-WORKDIR /app
+WORKDIR /src
 
-# Install gcc and build tools for CGO (required by go-sqlite3)
-RUN apk add --no-cache gcc musl-dev sqlite-dev
+RUN apk add --no-cache ca-certificates gcc musl-dev
 
-# Copy go mod files
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
 
-# Copy source code
 COPY main.go ./
 
-# Build the application with CGO enabled and proper tags for Alpine/musl
+RUN mkdir -p /scratch-data && touch /scratch-data/.keep
 ENV CGO_ENABLED=1
-RUN go build -tags "libsqlite3" -o urlshortener main.go
+RUN go build \
+    -tags "netgo osusergo" \
+    -ldflags "-linkmode external -extldflags '-static' -s -w" \
+    -o urlshortener main.go
 
-# Expose port
+FROM scratch
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder --chown=65532:65532 /scratch-data /data
+COPY --from=builder --chown=65532:65532 /src/urlshortener /urlshortener
+
+WORKDIR /data
+
+USER 65532:65532
+
 EXPOSE 8000
 
-# Run the binary
-CMD ["./urlshortener"]
+CMD ["/urlshortener"]

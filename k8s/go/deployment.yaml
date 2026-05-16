@@ -18,7 +18,8 @@ spec:
       containers:
         - name: go-service
           image: foysolcse/go-service:v1
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
+          workingDir: /data
           ports:
             - containerPort: 8000
           envFrom:
@@ -43,3 +44,9 @@ spec:
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}

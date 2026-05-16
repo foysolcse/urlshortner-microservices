@@ -67,6 +67,7 @@ jobs:
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Login to Docker Hub
         if: github.event_name != 'pull_request'
@@ -120,6 +121,8 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
 
       - name: Deploy Kubernetes manifests
+        env:
+          REGISTRY: ${{ secrets.DOCKER_USERNAME }}
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/configmap.yaml
@@ -131,6 +134,9 @@ jobs:
           kubectl apply -f k8s/ingress.yaml
           kubectl apply -f monitoring/prometheus/
           kubectl apply -f monitoring/grafana/
-          kubectl rollout status deployment/python-service -n urlshortener
-          kubectl rollout status deployment/go-service -n urlshortener
-          kubectl rollout status deployment/node-service -n urlshortener
+          kubectl set image deployment/go-service go-service=${REGISTRY}/go-service:${IMAGE_TAG} -n urlshortener
+          kubectl set image deployment/python-service python-service=${REGISTRY}/python-service:${IMAGE_TAG} -n urlshortener
+          kubectl set image deployment/node-service node-service=${REGISTRY}/node-service:${IMAGE_TAG} -n urlshortener
+          kubectl rollout status deployment/go-service -n urlshortener --timeout=120s
+          kubectl rollout status deployment/python-service -n urlshortener --timeout=120s
+          kubectl rollout status deployment/node-service -n urlshortener --timeout=120s
