@@ -147,6 +147,12 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+@app.route("/health")
+def health():
+    """Kubernetes liveness/readiness endpoint"""
+    return jsonify({"status": "healthy", "service": "python-service"}), 200
+
+
 @app.route("/create", methods=["POST"])
 def create_short_url():
     """Create a new short URL by calling Go service"""
@@ -325,4 +331,6 @@ def get_stats():
 if __name__ == "__main__":
     init_db()
     init_redis()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)

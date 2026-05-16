@@ -1,55 +1,136 @@
-name: CI/CD Pipeline
+name: Build, Scan, Push, Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  REGISTRY_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  build-and-deploy:
+  test-scan-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # ---------------- SONARQUBE ----------------
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go-service/go.mod
+          cache-dependency-path: go-service/go.sum
+
+      - name: Test Go service
+        working-directory: go-service
+        run: go test ./...
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate Python service
+        working-directory: python-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m compileall app.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate Node.js service
+        working-directory: node-service
+        run: |
+          npm install
+          npm test
+
+      - name: SonarQube scan
+        uses: sonarsource/sonarqube-scan-action@v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      # ---------------- DOCKER LOGIN ----------------
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - name: SonarQube quality gate
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      # ---------------- BUILD IMAGES ----------------
-      - name: Build Go Service
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/go-service:v1 ./go-service
+      - name: Login to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Python Service
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/python-service:v1 ./python-service
+      - name: Build and push Go image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./go-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY_NAMESPACE }}/go-service:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY_NAMESPACE }}/go-service:v1
 
-      - name: Build Node Service
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/node-service:v1 ./node-service
+      - name: Build and push Python image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./python-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY_NAMESPACE }}/python-service:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY_NAMESPACE }}/python-service:v1
 
-      # ---------------- PUSH IMAGES ----------------
-      - name: Push Go Service
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/go-service:v1
+      - name: Build and push Node image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./node-service
+          push: true
+          tags: |
+            ${{ env.REGISTRY_NAMESPACE }}/node-service:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY_NAMESPACE }}/node-service:v1
 
-      - name: Push Python Service
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/python-service:v1
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: test-scan-build
+    runs-on: ubuntu-latest
 
-      - name: Push Node Service
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/node-service:v1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # ---------------- DEPLOY TO K8S ----------------
-      - name: Deploy to Kubernetes
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: Deploy Kubernetes manifests
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/configmap.yaml
           kubectl apply -f k8s/secret.yaml
+          kubectl apply -f k8s/redis/
           kubectl apply -f k8s/go/
           kubectl apply -f k8s/python/
           kubectl apply -f k8s/node/
           kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f monitoring/prometheus/
+          kubectl apply -f monitoring/grafana/
+          kubectl rollout status deployment/python-service -n urlshortener
+          kubectl rollout status deployment/go-service -n urlshortener
+          kubectl rollout status deployment/node-service -n urlshortener

@@ -23,6 +23,7 @@ var ctx = context.Background()
 
 // pythonServiceURL can be overridden by PYTHON_SERVICE_URL environment variable (kept for backward compatibility)
 var pythonServiceURL = getEnv("PYTHON_SERVICE_URL", "http://localhost:5000")
+var publicBaseURL = getEnv("PUBLIC_BASE_URL", "http://localhost:8000")
 
 type ShortenRequest struct {
 	LongURL string `json:"long_url" binding:"required"`
@@ -63,7 +64,7 @@ func initDB() {
 
 func initRedis() {
 	redisURL := getEnv("REDIS_URL", "localhost:6380")
-	
+
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     redisURL,
 		Password: "", // no password
@@ -127,7 +128,7 @@ func createShortURL(c *gin.Context) {
 
 	response := ShortenResponse{
 		ShortCode: shortCode,
-		ShortURL:  "http://localhost:8000/" + shortCode,
+		ShortURL:  publicBaseURL + "/" + shortCode,
 		LongURL:   req.LongURL,
 	}
 
@@ -232,6 +233,8 @@ func sendClickEventHTTP(shortCode string) {
 }
 
 func main() {
+	port := getEnv("PORT", "8000")
+
 	initDB()
 	defer db.Close()
 
@@ -257,9 +260,21 @@ func main() {
 	})
 
 	// Routes
+	r.GET("/health", func(c *gin.Context) {
+		status := gin.H{"status": "healthy", "service": "go-service"}
+		if db == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "service": "go-service"})
+			return
+		}
+		status["redis"] = rdb != nil
+		c.JSON(http.StatusOK, status)
+	})
 	r.POST("/api/shorten", createShortURL)
+	r.GET("/u/:code", redirect)
 	r.GET("/:code", redirect)
 
-	log.Println("Go service starting on :8000")
-	r.Run(":8000")
+	log.Printf("Go service starting on :%s", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal(err)
+	}
 }

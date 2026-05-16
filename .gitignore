@@ -1,10 +1,10 @@
+# macOS
+.DS_Store
+
 # Databases
 go.db
 python.db
 node.db
-
-# GO
-go.sum
 
 # Python
 venv/

@@ -6,4 +6,7 @@ metadata:
 data:
   GO_SERVICE_URL: "http://go-service:8000"
   NODE_SERVICE_URL: "http://node-service:3000"
-  REDIS_HOST: "redis"
+  PYTHON_SERVICE_URL: "http://python-service:5000"
+  PUBLIC_BASE_URL: "http://urlshortener.local/u"
+  REDIS_URL: "redis:6379"
+  FLASK_DEBUG: "false"

@@ -1,0 +1,23 @@
+flowchart LR
+  user["User / Browser"] --> ingress["NGINX Ingress<br/>urlshortener.local"]
+  ingress --> pythonSvc["python-service<br/>ClusterIP :5000"]
+  ingress --> goSvc["go-service<br/>ClusterIP :8000"]
+
+  pythonSvc --> pythonPods["Python Deployment<br/>2-10 pods, HPA"]
+  goSvc --> goPods["Go Deployment<br/>2-10 pods, HPA"]
+  nodeSvc["node-service<br/>ClusterIP :3000"] --> nodePods["Node Deployment<br/>2-10 pods, HPA"]
+
+  pythonPods --> goSvc
+  pythonPods --> nodeSvc
+  goPods --> redisSvc["redis<br/>ClusterIP :6379"]
+  redisSvc --> redisPod["Redis Deployment<br/>cache + pub/sub"]
+  redisPod --> pythonPods
+
+  github["GitHub Actions"] --> sonar["SonarQube Quality Gate"]
+  sonar --> dockerhub["Docker Hub Images"]
+  dockerhub --> kubectl["kubectl apply"]
+  kubectl --> namespace["Kubernetes Namespace<br/>urlshortener"]
+
+  prometheus["Prometheus"] --> pods["Pod and cAdvisor metrics"]
+  grafana["Grafana"] --> prometheus
+  hpa["Horizontal Pod Autoscalers"] --> pods

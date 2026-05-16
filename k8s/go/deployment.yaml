@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: go-service
   namespace: urlshortener
+  labels:
+    app: go-service
 spec:
   replicas: 2
   selector:
@@ -16,5 +18,28 @@ spec:
       containers:
         - name: go-service
           image: foysolcse/go-service:v1
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: app-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20

@@ -19,6 +19,7 @@ services:
       - go-data:/app
     environment:
       - PYTHON_SERVICE_URL=http://python-service:5000
+      - PUBLIC_BASE_URL=http://localhost:8000
       - REDIS_URL=redis:6379
     depends_on:
       - redis

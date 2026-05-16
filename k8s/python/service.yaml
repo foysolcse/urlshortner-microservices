@@ -4,9 +4,10 @@ metadata:
   name: python-service
   namespace: urlshortener
 spec:
+  type: ClusterIP
   selector:
     app: python-service
   ports:
-    - port: 5000
+    - name: http
+      port: 5000
       targetPort: 5000
-  type: ClusterIP

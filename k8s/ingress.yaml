@@ -4,18 +4,25 @@ metadata:
   name: urlshortener-ingress
   namespace: urlshortener
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
 spec:
   ingressClassName: nginx
-
   rules:
-  - host: urlshortener.local
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: python-service
-            port:
-              number: 5000
+    - host: urlshortener.local
+      http:
+        paths:
+          - path: /u
+            pathType: Prefix
+            backend:
+              service:
+                name: go-service
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: python-service
+                port:
+                  number: 5000
