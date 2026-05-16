@@ -11,6 +11,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   REGISTRY_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
   IMAGE_TAG: ${{ github.sha }}
+  HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
+  HAS_SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL != '' }}
 
 jobs:
   test-scan-build:
@@ -57,13 +59,21 @@ jobs:
           npm install
           npm test
 
+      - name: Validate SonarQube secrets
+        if: github.event_name != 'pull_request' && (env.HAS_SONAR_TOKEN != 'true' || env.HAS_SONAR_HOST_URL != 'true')
+        run: |
+          echo "::error::Missing SONAR_TOKEN or SONAR_HOST_URL repository secret. SONAR_HOST_URL must be the full SonarQube/SonarCloud URL, for example https://sonarcloud.io."
+          exit 1
+
       - name: SonarQube scan
+        if: env.HAS_SONAR_TOKEN == 'true' && env.HAS_SONAR_HOST_URL == 'true'
         uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: SonarQube quality gate
+        if: env.HAS_SONAR_TOKEN == 'true' && env.HAS_SONAR_HOST_URL == 'true'
         uses: sonarsource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
