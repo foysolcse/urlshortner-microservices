@@ -265,8 +265,8 @@ push to main
 │  1. go test ./...               │
 │  2. python -m compileall app.py │
 │  3. npm test (syntax check)     │
-│  4. SonarQube scan              │
-│  5. SonarQube quality gate ──── fail if gate fails
+│  4. SonarQube scan + gate wait  │
+│     fail if quality gate fails  │
 │  6. docker build + push (×3)   │
 └─────────────────────────────────┘
     │  needs: test-scan-build
@@ -302,13 +302,22 @@ Configuration: [sonar-project.properties](sonar-project.properties)
 
 Sources analysed: `go-service`, `python-service`, `node-service`
 
-The pipeline uses `sonarsource/sonarqube-scan-action` (scan) and `sonarsource/sonarqube-quality-gate-action` (gate check). The pipeline fails if the SonarQube Quality Gate is not passed — enforcing thresholds on:
+SonarCloud web project settings:
+
+- Organization: `foysolcse`
+- Project key: `urlshortener-microservices`
+- Host URL: `https://sonarcloud.io`
+- GitHub secret required: `SONAR_TOKEN`
+
+The pipeline uses `sonarsource/sonarqube-scan-action` for analysis. The scanner waits for the SonarQube Quality Gate via `sonar.qualitygate.wait=true`, so the pipeline fails if the gate is not passed — enforcing thresholds on:
 
 - Code smells
 - Duplicated code blocks
 - Reliability / security ratings
 
 Configure gate thresholds in **SonarCloud → Project → Quality Gate** or in a self-hosted SonarQube instance.
+
+If the scan still tries to connect to `localhost:9000`, remove or update any repository/environment secret named `SONAR_HOST_URL`; this repository config already sets `sonar.host.url=https://sonarcloud.io`.
 
 ---
 
